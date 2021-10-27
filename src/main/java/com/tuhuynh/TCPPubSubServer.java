@@ -71,6 +71,7 @@ public class TCPPubSubServer {
                     ctx.writeAndFlush("Invalid unsubscribe command\n");
                     return;
                 }
+                StringBuilder sb = new StringBuilder();
                 for (int i = 1; i < msgArr.length; i++) {
                     String value = msgArr[i];
                     Set<Channel> list = topics.get(value);
@@ -80,8 +81,12 @@ public class TCPPubSubServer {
                             topics.remove(value);
                         }
                     }
+                    sb.append(value).append(", ");
                 }
-                ctx.writeAndFlush("Unsubscribed\n");
+                if (sb.length() > 0){
+                    sb.deleteCharAt(sb.length() - 2);
+                }
+                ctx.writeAndFlush("Unsubscribed to " + sb + "\n");
             } else if (key.equalsIgnoreCase("publish")) {
                 if (msgArr.length != 3) {
                     ctx.writeAndFlush("Invalid publish command\n");
@@ -93,7 +98,7 @@ public class TCPPubSubServer {
                 if (set != null) {
                     for (Channel channel : set) {
                         if (channel.isActive()) {
-                            channel.writeAndFlush(value + "\n");
+                            channel.writeAndFlush("Message received from " + topic + ": " + value + "\n");
                         } else {
                             if (!channel.isOpen()) {
                                 set.remove(channel);
