@@ -12,13 +12,12 @@ import io.netty.handler.codec.string.StringEncoder;
 import io.netty.handler.timeout.IdleStateHandler;
 import io.netty.util.CharsetUtil;
 
-import java.util.LinkedList;
-import java.util.Locale;
+import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
 
 public class TCPPubSubServer {
-    public static final ConcurrentMap<String, LinkedList<Channel>> topics = new ConcurrentHashMap<>();
+    public static final ConcurrentMap<String, Deque<Channel>> topics = new ConcurrentHashMap<>();
 
     public static void main(String[] args) throws InterruptedException {
         ServerBootstrap serverBootstrap = new ServerBootstrap();
@@ -55,9 +54,9 @@ public class TCPPubSubServer {
                 StringBuilder stringBuilder = new StringBuilder();
                 for (int i = 1; i < msgArr.length; i++) {
                     String value = msgArr[i];
-                    LinkedList<Channel> list = topics.get(value);
+                    Deque<Channel> list = topics.get(value);
                     if (list == null) {
-                        list = new LinkedList<>();
+                        list = new ArrayDeque<>();
                     }
                     list.add(ctx.channel());
                     topics.put(value, list);
@@ -71,7 +70,7 @@ public class TCPPubSubServer {
                 }
                 for (int i = 1; i < msgArr.length; i++) {
                     String value = msgArr[i];
-                    LinkedList<Channel> list = topics.get(value);
+                    Deque<Channel> list = topics.get(value);
                     if (list != null) {
                         list.remove(ctx.channel());
                         if (list.size() == 0) {
@@ -87,7 +86,7 @@ public class TCPPubSubServer {
                 }
                 String topic = msgArr[1];
                 String value = msgArr[2];
-                LinkedList<Channel> list = topics.get(topic);
+                Deque<Channel> list = topics.get(topic);
                 if (list != null) {
                     for (Channel channel : list) {
                         if (channel.isActive()) {
