@@ -51,7 +51,7 @@ public class TCPPubSubServer {
                     ctx.writeAndFlush("Invalid subscribe command\n");
                     return;
                 }
-                StringBuilder stringBuilder = new StringBuilder();
+                StringBuilder sb = new StringBuilder();
                 for (int i = 1; i < msgArr.length; i++) {
                     String value = msgArr[i];
                     Deque<Channel> list = topics.get(value);
@@ -60,9 +60,12 @@ public class TCPPubSubServer {
                     }
                     list.add(ctx.channel());
                     topics.put(value, list);
-                    stringBuilder.append(value).append(i == msgArr.length - 1 ? "" : ", ");
+                    sb.append(value).append(", ");
                 }
-                ctx.writeAndFlush("Subscribed to " + stringBuilder + "\n");
+                if (sb.length() > 0){
+                    sb.deleteCharAt(sb.length() - 2);
+                }
+                ctx.writeAndFlush("Subscribed to " + sb + "\n");
             } else if (key.equalsIgnoreCase("unsubscribe")) {
                 if (msgArr.length < 2) {
                     ctx.writeAndFlush("Invalid unsubscribe command\n");
