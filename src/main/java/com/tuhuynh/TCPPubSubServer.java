@@ -17,7 +17,7 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
 
 public class TCPPubSubServer {
-    public static final ConcurrentMap<String, Deque<Channel>> topics = new ConcurrentHashMap<>();
+    public static final ConcurrentMap<String, Set<Channel>> topics = new ConcurrentHashMap<>();
 
     public static void main(String[] args) throws InterruptedException {
         ServerBootstrap serverBootstrap = new ServerBootstrap();
@@ -54,9 +54,9 @@ public class TCPPubSubServer {
                 StringBuilder sb = new StringBuilder();
                 for (int i = 1; i < msgArr.length; i++) {
                     String value = msgArr[i];
-                    Deque<Channel> list = topics.get(value);
+                    Set<Channel> list = topics.get(value);
                     if (list == null) {
-                        list = new ArrayDeque<>();
+                        list = new HashSet<>(10);
                     }
                     list.add(ctx.channel());
                     topics.put(value, list);
@@ -73,7 +73,7 @@ public class TCPPubSubServer {
                 }
                 for (int i = 1; i < msgArr.length; i++) {
                     String value = msgArr[i];
-                    Deque<Channel> list = topics.get(value);
+                    Set<Channel> list = topics.get(value);
                     if (list != null) {
                         list.remove(ctx.channel());
                         if (list.size() == 0) {
@@ -89,14 +89,14 @@ public class TCPPubSubServer {
                 }
                 String topic = msgArr[1];
                 String value = msgArr[2];
-                Deque<Channel> list = topics.get(topic);
-                if (list != null) {
-                    for (Channel channel : list) {
+                Set<Channel> set = topics.get(topic);
+                if (set != null) {
+                    for (Channel channel : set) {
                         if (channel.isActive()) {
                             channel.writeAndFlush(value + "\n");
                         } else {
                             if (!channel.isOpen()) {
-                                list.remove(channel);
+                                set.remove(channel);
                             }
                         }
                     }
