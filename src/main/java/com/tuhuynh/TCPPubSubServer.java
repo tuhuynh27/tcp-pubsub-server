@@ -1,5 +1,7 @@
 package com.tuhuynh;
 
+import ch.qos.logback.classic.Level;
+import ch.qos.logback.classic.LoggerContext;
 import io.netty.bootstrap.ServerBootstrap;
 import io.netty.channel.*;
 import io.netty.channel.nio.NioEventLoopGroup;
@@ -11,22 +13,59 @@ import io.netty.handler.codec.string.StringDecoder;
 import io.netty.handler.codec.string.StringEncoder;
 import io.netty.handler.timeout.IdleStateHandler;
 import io.netty.util.CharsetUtil;
+import lombok.extern.slf4j.Slf4j;
+import org.apache.commons.cli.*;
+import org.slf4j.LoggerFactory;
 
-import java.util.*;
+import java.util.HashSet;
+import java.util.Locale;
+import java.util.Optional;
+import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
 
+@Slf4j
 public class TCPPubSubServer {
-    public static final ConcurrentMap<String, Set<Channel>> topics = new ConcurrentHashMap<>();
+    static {
+        LoggerContext ctx = (LoggerContext) LoggerFactory.getILoggerFactory();
+        ctx.getLogger("io.netty").setLevel(Level.OFF);
+    }
 
-    public static void main(String[] args) throws InterruptedException {
+    private static int port = 1234;
+
+    public static void main(String[] args) throws ParseException {
+        Options options = new Options();
+        options.addOption(new Option("p", "port", true, "TCP Port"));
+        CommandLine cmd = new DefaultParser().parse(options, args);
+        Optional.ofNullable(cmd.getOptionValue("p")).ifPresent(str -> { port = Integer.parseInt(str); });
+        new TCPPubSubServer().run();
+    }
+
+    public void run() {
         ServerBootstrap serverBootstrap = new ServerBootstrap();
+        NioEventLoopGroup bossGroup = new NioEventLoopGroup(1);
+        NioEventLoopGroup workerGroup = new NioEventLoopGroup();
         serverBootstrap
-                .group(new NioEventLoopGroup(), new NioEventLoopGroup(Runtime.getRuntime().availableProcessors() * 2))
+                .group(bossGroup, workerGroup)
                 .channel(NioServerSocketChannel.class)
                 .childHandler(new HandlerInit());
-        ChannelFuture sync = serverBootstrap.bind(1234).syncUninterruptibly();
-        sync.channel().closeFuture().sync();
+        ChannelFuture sync = serverBootstrap.bind(port).syncUninterruptibly();
+        try {
+            System.out.println("\n" +
+                    "      ___           \n" +
+                    "|__/ |__  \\  /  /\\  \n" +
+                    "|  \\ |___  \\/  /~~\\ \n" +
+                    "                    \n");
+            log.info("Server started at port " + port + ", PID: " + ProcessHandle.current().pid());
+            sync.channel().closeFuture().sync();
+        } catch (InterruptedException e) {
+            log.error("Error: ", e);
+        }
+        Runtime.getRuntime().addShutdownHook(new Thread(() -> {
+            bossGroup.shutdownGracefully();
+            workerGroup.shutdownGracefully();
+            log.info("Bye!");
+        }));
     }
 
     public static class HandlerInit extends ChannelInitializer<SocketChannel> {
@@ -42,6 +81,8 @@ public class TCPPubSubServer {
     }
 
     public static class Handler extends SimpleChannelInboundHandler<String> {
+        public final ConcurrentMap<String, Set<Channel>> topics = new ConcurrentHashMap<>();
+
         @Override
         protected void channelRead0(ChannelHandlerContext ctx, String msg) {
             String[] msgArr = msg.trim().split("\\s+");
